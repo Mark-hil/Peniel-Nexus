@@ -17,12 +17,19 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useShopperOrders } from '@/hooks/use-shopper-orders';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { formatGHS } from '@/lib/format';
 import { toast } from 'sonner';
 
 export default function ShopperAvailablePage() {
   const { availableOrders, loading, acceptOrder } = useShopperOrders();
   const [accepting, setAccepting] = React.useState<string | null>(null);
+
+  const pagination = usePagination({
+    items: availableOrders,
+    initialPageSize: 4,
+  });
 
   const handleAccept = async (orderId: string, orderNumber: string) => {
     setAccepting(orderId);
@@ -65,108 +72,126 @@ export default function ShopperAvailablePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {availableOrders.map((order) => (
-              <Card key={order.id} className="border-border/60">
-                <CardHeader className="flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{order.orderNumber}</CardTitle>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{order.customerName}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display text-lg font-bold text-primary">
-                      {formatGHS(order.shoppingBudget)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">shopping budget</p>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Shopping List
-                    </p>
-                    {order.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">{item.name}</p>
-                          {item.quantity && (
-                            <p className="text-xs text-muted-foreground">{item.quantity}</p>
-                          )}
-                          {item.notes && (
-                            <p className="mt-0.5 text-xs italic text-muted-foreground">
-                              &quot;{item.notes}&quot;
-                            </p>
-                          )}
+          <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {pagination.data.map((order) => (
+                <Card key={order.id} className="border-border/60">
+                  <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">{order.orderNumber}</CardTitle>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{order.customerName}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display text-lg font-bold text-primary">
+                        {formatGHS(order.shoppingBudget)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">shopping budget</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Shopping List
+                      </p>
+                      {order.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">{item.name}</p>
+                            {item.quantity && (
+                              <p className="text-xs text-muted-foreground">{item.quantity}</p>
+                            )}
+                            {item.notes && (
+                              <p className="mt-0.5 text-xs italic text-muted-foreground">
+                                &quot;{item.notes}&quot;
+                              </p>
+                            )}
+                          </div>
+                          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                            {formatGHS(item.budget)}
+                          </span>
                         </div>
-                        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                          {formatGHS(item.budget)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
 
-                  <Separator />
+                    <Separator />
 
-                  <div className="space-y-2.5 text-sm">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{order.deliveryAddress}</p>
-                        <p className="text-xs text-muted-foreground">GPS: {order.gpsLocation}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{order.preferredTime}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{order.customerPhone}</span>
-                    </div>
-                    {order.specialInstructions && (
+                    <div className="space-y-2.5 text-sm">
                       <div className="flex items-start gap-2">
-                        <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="text-muted-foreground">{order.specialInstructions}</span>
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{order.deliveryAddress}</p>
+                          <p className="text-xs text-muted-foreground">GPS: {order.gpsLocation}</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">Your earnings</span>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span>{order.preferredTime}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span>{order.customerPhone}</span>
+                      </div>
+                      {order.specialInstructions && (
+                        <div className="flex items-start gap-2">
+                          <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground">{order.specialInstructions}</span>
+                        </div>
+                      )}
                     </div>
-                    <span className="font-semibold text-primary">
-                      {formatGHS(order.serviceFee)}
-                    </span>
-                  </div>
 
-                  <Button
-                    className="w-full"
-                    size="lg"
-                    onClick={() => handleAccept(order.id, order.orderNumber)}
-                    disabled={accepting === order.id}
-                  >
-                    {accepting === order.id ? (
-                      'Accepting...'
-                    ) : (
-                      <>
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        Accept & Start Shopping
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <Separator />
+
+                    <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Your earnings</span>
+                      </div>
+                      <span className="font-semibold text-primary">
+                        {formatGHS(order.serviceFee)}
+                      </span>
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => handleAccept(order.id, order.orderNumber)}
+                      disabled={accepting === order.id}
+                    >
+                      {accepting === order.id ? (
+                        'Accepting...'
+                      ) : (
+                        <>
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                          Accept & Start Shopping
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <PaginationControl
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[4, 6, 12]}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              itemLabel="available orders"
+              showPageSize
+              className="border-t-0 pt-2"
+            />
+          </>
         )}
       </div>
+
     </FieldStaffSidebar>
   );
 }

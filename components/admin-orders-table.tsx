@@ -41,6 +41,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAdminData } from '@/hooks/use-admin-data';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { supabase } from '@/lib/supabase';
 import { formatGHS, formatDate } from '@/lib/format';
 import { toast } from 'sonner';
@@ -93,6 +95,11 @@ export function AdminOrdersTable() {
       o.customerName.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === 'all' || o.status === filter;
     return matchesQuery && matchesFilter;
+  });
+
+  const pagination = usePagination({
+    items: filtered,
+    initialPageSize: 10,
   });
 
   return (
@@ -163,7 +170,7 @@ export function AdminOrdersTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((order) => (
+                {pagination.data.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell>
                       <Link href={`/admin/orders/${order.id}`} className="font-medium hover:text-primary">
@@ -217,8 +224,26 @@ export function AdminOrdersTable() {
               </TableBody>
             </Table>
           )}
+
+          {!loading && filtered.length > 0 && (
+            <PaginationControl
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[5, 10, 20, 50]}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              itemLabel="orders"
+              showPageSize
+              className="px-4 py-3"
+            />
+          )}
         </CardContent>
       </Card>
+
 
       <AlertDialog open={cancelOrderId !== null} onOpenChange={(open) => !open && setCancelOrderId(null)}>
         <AlertDialogContent>

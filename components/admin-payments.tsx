@@ -13,15 +13,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PaymentStatusBadge } from '@/components/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAdminData } from '@/hooks/use-admin-data';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { formatGHS, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PaymentStatus } from '@/types';
@@ -55,6 +50,11 @@ export function AdminPayments() {
       o.customerName.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === 'all' || o.paymentStatus === filter;
     return matchesQuery && matchesFilter;
+  });
+
+  const pagination = usePagination({
+    items: filtered,
+    initialPageSize: 10,
   });
 
   return (
@@ -138,7 +138,7 @@ export function AdminPayments() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((o) => (
+                {pagination.data.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell className="font-medium">{o.orderNumber}</TableCell>
                     <TableCell className="text-muted-foreground">{o.customerName}</TableCell>
@@ -160,8 +160,26 @@ export function AdminPayments() {
               </TableBody>
             </Table>
           )}
+
+          {!loading && filtered.length > 0 && (
+            <PaginationControl
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[5, 10, 20, 50]}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              itemLabel="transactions"
+              showPageSize
+              className="px-4 py-3"
+            />
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+

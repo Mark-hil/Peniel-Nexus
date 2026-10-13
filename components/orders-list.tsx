@@ -11,6 +11,8 @@ import { formatGHS } from '@/lib/format';
 import type { OrderStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { useOrders } from '@/hooks/use-orders';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const filters: { label: string; value: OrderStatus | 'all' }[] = [
@@ -31,6 +33,11 @@ export function OrdersList() {
       o.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase()));
     const matchesFilter = filter === 'all' || o.status === filter;
     return matchesQuery && matchesFilter;
+  });
+
+  const pagination = usePagination({
+    items: filtered,
+    initialPageSize: 5,
   });
 
   return (
@@ -106,38 +113,56 @@ export function OrdersList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((order) => (
-            <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-              <Card className="border-border/60 transition-all hover:shadow-md">
-                <CardContent className="p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <Package className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{order.orderNumber}</p>
-                        <OrderStatusBadge status={order.status} />
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {pagination.data.map((order) => (
+              <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
+                <Card className="border-border/60 transition-all hover:shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Package className="h-6 w-6" />
                       </div>
-                      <p className="mt-1 truncate text-sm text-muted-foreground">
-                        {order.items.map((i) => i.name).join(', ')}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{order.preferredTime}</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
-                      <div className="text-right">
-                        <p className="font-semibold">{formatGHS(order.total)}</p>
-                        <PaymentStatusBadge status={order.paymentStatus} className="mt-1" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{order.orderNumber}</p>
+                          <OrderStatusBadge status={order.status} />
+                        </div>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">
+                          {order.items.map((i) => i.name).join(', ')}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">{order.preferredTime}</p>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
+                        <div className="text-right">
+                          <p className="font-semibold">{formatGHS(order.total)}</p>
+                          <PaymentStatusBadge status={order.paymentStatus} className="mt-1" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          <PaginationControl
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
+            pageSizeOptions={[5, 10, 20]}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            itemLabel="orders"
+            showPageSize
+            className="border-t-0 pt-1"
+          />
         </div>
       )}
     </div>
   );
 }
+

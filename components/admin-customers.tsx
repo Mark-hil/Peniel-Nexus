@@ -16,6 +16,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAdminData } from '@/hooks/use-admin-data';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { supabase } from '@/lib/supabase';
 import { formatGHS, formatDate } from '@/lib/format';
 import { toast } from 'sonner';
@@ -82,6 +84,11 @@ export function AdminCustomers() {
       c.phone.toLowerCase().includes(query.toLowerCase()),
   );
 
+  const pagination = usePagination({
+    items: filtered,
+    initialPageSize: 10,
+  });
+
   const isLoading = loading || loadingCustomers;
 
   return (
@@ -128,7 +135,7 @@ export function AdminCustomers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c) => (
+                {pagination.data.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -151,8 +158,26 @@ export function AdminCustomers() {
               </TableBody>
             </Table>
           )}
+
+          {!isLoading && filtered.length > 0 && (
+            <PaginationControl
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[5, 10, 20, 50]}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              itemLabel="customers"
+              showPageSize
+              className="px-4 py-3"
+            />
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+

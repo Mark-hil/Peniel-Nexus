@@ -24,6 +24,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRiderOrders } from '@/hooks/use-rider-orders';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { formatGHS } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +33,10 @@ export default function RiderEarningsPage() {
   const { activeOrders, loading, earnings } = useRiderOrders();
 
   const completed = activeOrders.filter((o) => o.status === 'delivered');
+  const pagination = usePagination({
+    items: completed,
+    initialPageSize: 5,
+  });
   const todayEarnings = earnings.today;
   const weekEarnings = earnings.week;
   const monthEarnings = completed.reduce((s, o) => s + o.deliveryFee, 0);
@@ -156,24 +162,42 @@ export default function RiderEarningsPage() {
               {completed.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">No completed deliveries yet.</p>
               ) : (
-                completed.slice(0, 5).map((p, i) => (
-                  <div key={p.id}>
-                    {i > 0 && <Separator className="my-1" />}
-                    <div className="flex items-center justify-between py-3">
-                      <div>
-                        <p className="text-sm font-medium">{p.orderNumber}</p>
-                        <p className="text-xs text-muted-foreground">{p.customerName}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{formatGHS(p.deliveryFee)}</p>
-                        <span className="text-xs font-medium text-success">Paid</span>
+                <>
+                  {pagination.data.map((p, i) => (
+                    <div key={p.id}>
+                      {i > 0 && <Separator className="my-1" />}
+                      <div className="flex items-center justify-between py-3">
+                        <div>
+                          <p className="text-sm font-medium">{p.orderNumber}</p>
+                          <p className="text-xs text-muted-foreground">{p.customerName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">{formatGHS(p.deliveryFee)}</p>
+                          <span className="text-xs font-medium text-success">Paid</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                  <PaginationControl
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    pageSize={pagination.pageSize}
+                    pageSizeOptions={[5, 10, 20]}
+                    onPageChange={pagination.setPage}
+                    onPageSizeChange={pagination.setPageSize}
+                    startIndex={pagination.startIndex}
+                    endIndex={pagination.endIndex}
+                    itemLabel="completed deliveries"
+                    showPageSize={pagination.totalItems > 5}
+                    className="pt-2"
+                  />
+                </>
               )}
             </CardContent>
           </Card>
+
         </div>
       </div>
     </FieldStaffSidebar>

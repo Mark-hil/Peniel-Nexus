@@ -18,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNotifications } from '@/hooks/use-notifications';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
@@ -51,6 +53,10 @@ const colorMap: Partial<Record<Notification['type'], string>> = {
 
 export function NotificationsList() {
   const { notifications, loading, unreadCount, markAllRead } = useNotifications();
+  const pagination = usePagination({
+    items: notifications,
+    initialPageSize: 8,
+  });
 
   return (
     <div className="space-y-6">
@@ -99,33 +105,51 @@ export function NotificationsList() {
               </p>
             </div>
           ) : (
-            notifications.map((n) => {
-              const Icon = iconMap[n.type] ?? Bell;
-              return (
-                <div
-                  key={n.id}
-                  className={cn(
-                    'flex items-start gap-4 rounded-xl p-4 transition-colors',
-                    !n.read && 'bg-primary/5',
-                  )}
-                >
-                  <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', colorMap[n.type] ?? 'bg-muted text-muted-foreground')}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold">{n.title}</p>
-                      {!n.read && <span className="h-2 w-2 rounded-full bg-primary" />}
+            <>
+              {pagination.data.map((n) => {
+                const Icon = iconMap[n.type] ?? Bell;
+                return (
+                  <div
+                    key={n.id}
+                    className={cn(
+                      'flex items-start gap-4 rounded-xl p-4 transition-colors',
+                      !n.read && 'bg-primary/5',
+                    )}
+                  >
+                    <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', colorMap[n.type] ?? 'bg-muted text-muted-foreground')}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{n.timestamp}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">{n.title}</p>
+                        {!n.read && <span className="h-2 w-2 rounded-full bg-primary" />}
+                      </div>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{n.timestamp}</p>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+
+              <PaginationControl
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                pageSize={pagination.pageSize}
+                pageSizeOptions={[5, 8, 15, 30]}
+                onPageChange={pagination.setPage}
+                onPageSizeChange={pagination.setPageSize}
+                startIndex={pagination.startIndex}
+                endIndex={pagination.endIndex}
+                itemLabel="notifications"
+                showPageSize
+                className="pt-3"
+              />
+            </>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+

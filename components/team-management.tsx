@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminData, type AdminTeamMember } from '@/hooks/use-admin-data';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +46,11 @@ export function TeamManagement({
     const matchesQuery = m.fullName.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === 'all' || m.status === filter;
     return matchesQuery && matchesFilter;
+  });
+
+  const pagination = usePagination({
+    items: filtered,
+    initialPageSize: 6,
   });
 
   const RoleIcon = role === 'Shopper' ? ShoppingCart : Bike;
@@ -128,65 +135,83 @@ export function TeamManagement({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((m) => {
-            const status = statusConfig[m.status];
-            return (
-              <Card key={m.id} className="border-border/60 transition-shadow hover:shadow-md">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback>{m.fullName.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold">{m.fullName}</p>
-                      <p className="truncate text-xs text-muted-foreground">{m.phone || 'No phone'}</p>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <Badge variant="secondary" className={status.className}>
-                          {status.label}
-                        </Badge>
-                        {role === 'Rider' && (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Bike className="h-3 w-3" />
-                            Motorcycle
-                          </span>
-                        )}
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {pagination.data.map((m) => {
+              const status = statusConfig[m.status];
+              return (
+                <Card key={m.id} className="border-border/60 transition-shadow hover:shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback>{m.fullName.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{m.fullName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{m.phone || 'No phone'}</p>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <Badge variant="secondary" className={status.className}>
+                            {status.label}
+                          </Badge>
+                          {role === 'Rider' && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Bike className="h-3 w-3" />
+                              Motorcycle
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-lg bg-muted/40 p-2">
-                      <p className="text-sm font-semibold">{m.activeOrders}</p>
-                      <p className="text-xs text-muted-foreground">Active</p>
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-muted/40 p-2">
+                        <p className="text-sm font-semibold">{m.activeOrders}</p>
+                        <p className="text-xs text-muted-foreground">Active</p>
+                      </div>
+                      <div className="rounded-lg bg-muted/40 p-2">
+                        <p className="text-sm font-semibold">—</p>
+                        <p className="text-xs text-muted-foreground">Done</p>
+                      </div>
+                      <div className="rounded-lg bg-muted/40 p-2">
+                        <p className="flex items-center justify-center gap-0.5 text-sm font-semibold">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          4.9
+                        </p>
+                        <p className="text-xs text-muted-foreground">Rating</p>
+                      </div>
                     </div>
-                    <div className="rounded-lg bg-muted/40 p-2">
-                      <p className="text-sm font-semibold">—</p>
-                      <p className="text-xs text-muted-foreground">Done</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/40 p-2">
-                      <p className="flex items-center justify-center gap-0.5 text-sm font-semibold">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        4.9
-                      </p>
-                      <p className="text-xs text-muted-foreground">Rating</p>
-                    </div>
-                  </div>
 
-                  <Button
-                    className="mt-4 w-full"
-                    variant={m.status === 'available' ? 'default' : 'outline'}
-                    disabled={m.status !== 'available'}
-                    onClick={() => toast.info(`${m.fullName} is available for assignment`)}
-                  >
-                    {m.status === 'available' ? 'Assign to Order' : 'Unavailable'}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    <Button
+                      className="mt-4 w-full"
+                      variant={m.status === 'available' ? 'default' : 'outline'}
+                      disabled={m.status !== 'available'}
+                      onClick={() => toast.info(`${m.fullName} is available for assignment`)}
+                    >
+                      {m.status === 'available' ? 'Assign to Order' : 'Unavailable'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <PaginationControl
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={pagination.pageSize}
+            pageSizeOptions={[6, 12, 24]}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            itemLabel={`${role.toLowerCase()}s`}
+            showPageSize
+            className="border-t-0 pt-2"
+          />
+        </>
       )}
     </div>
   );
+
 }

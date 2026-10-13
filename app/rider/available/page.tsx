@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRiderOrders } from '@/hooks/use-rider-orders';
+import { usePagination } from '@/hooks/use-pagination';
+import { PaginationControl } from '@/components/ui/pagination-control';
 import { formatGHS, parseGPS } from '@/lib/format';
 import { DeliveryMap } from '@/components/delivery-map';
 import { toast } from 'sonner';
@@ -23,6 +25,11 @@ import { toast } from 'sonner';
 export default function RiderAvailablePage() {
   const { availableOrders, loading, acceptOrder } = useRiderOrders();
   const [accepting, setAccepting] = React.useState<string | null>(null);
+
+  const pagination = usePagination({
+    items: availableOrders,
+    initialPageSize: 4,
+  });
 
   const handlePickup = async (orderId: string, orderNumber: string) => {
     setAccepting(orderId);
@@ -65,97 +72,115 @@ export default function RiderAvailablePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {availableOrders.map((order) => (
-              <Card key={order.id} className="border-border/60">
-                <CardHeader className="flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{order.orderNumber}</CardTitle>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{order.customerName}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display text-lg font-bold text-primary">
-                      {formatGHS(order.deliveryFee)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">delivery fee</p>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {order.items.length} items packed
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {order.items.map((i) => i.name).join(', ')}
-                    </p>
-                  </div>
+          <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {pagination.data.map((order) => (
+                <Card key={order.id} className="border-border/60">
+                  <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">{order.orderNumber}</CardTitle>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{order.customerName}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display text-lg font-bold text-primary">
+                        {formatGHS(order.deliveryFee)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">delivery fee</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {order.items.length} items packed
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {order.items.map((i) => i.name).join(', ')}
+                      </p>
+                    </div>
 
-                  <Separator />
+                    <Separator />
 
-                  <div className="space-y-2.5 text-sm">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{order.deliveryAddress}</p>
-                        <p className="text-xs text-muted-foreground">GPS: {order.gpsLocation}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{order.preferredTime}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{order.customerPhone}</span>
-                    </div>
-                    {order.specialInstructions && (
+                    <div className="space-y-2.5 text-sm">
                       <div className="flex items-start gap-2">
-                        <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="text-muted-foreground">{order.specialInstructions}</span>
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{order.deliveryAddress}</p>
+                          <p className="text-xs text-muted-foreground">GPS: {order.gpsLocation}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span>{order.preferredTime}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span>{order.customerPhone}</span>
+                      </div>
+                      {order.specialInstructions && (
+                        <div className="flex items-start gap-2">
+                          <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground">{order.specialInstructions}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {order.shopper && (
+                      <div className="flex items-center gap-2 rounded-lg bg-muted/30 p-3 text-sm">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Shopped by:</span>
+                        <span className="font-medium">{order.shopper}</span>
                       </div>
                     )}
-                  </div>
 
-                  <Separator />
-
-                  {order.shopper && (
-                    <div className="flex items-center gap-2 rounded-lg bg-muted/30 p-3 text-sm">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Shopped by:</span>
-                      <span className="font-medium">{order.shopper}</span>
+                    <div className="overflow-hidden rounded-xl border border-border/60">
+                      <DeliveryMap
+                        destination={parseGPS(order.gpsLocation)}
+                        destinationLabel={order.deliveryAddress}
+                        height={200}
+                        zoom={13}
+                      />
                     </div>
-                  )}
 
-                  <div className="overflow-hidden rounded-xl border border-border/60">
-                    <DeliveryMap
-                      destination={parseGPS(order.gpsLocation)}
-                      destinationLabel={order.deliveryAddress}
-                      height={200}
-                      zoom={13}
-                    />
-                  </div>
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => handlePickup(order.id, order.orderNumber)}
+                      disabled={accepting === order.id}
+                    >
+                      {accepting === order.id ? (
+                        'Accepting...'
+                      ) : (
+                        <>
+                          <Truck className="mr-2 h-4 w-4" />
+                          Confirm Pickup
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-                  <Button
-                    className="w-full"
-                    size="lg"
-                    onClick={() => handlePickup(order.id, order.orderNumber)}
-                    disabled={accepting === order.id}
-                  >
-                    {accepting === order.id ? (
-                      'Accepting...'
-                    ) : (
-                      <>
-                        <Truck className="mr-2 h-4 w-4" />
-                        Confirm Pickup
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+            <PaginationControl
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[4, 6, 12]}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              startIndex={pagination.startIndex}
+              endIndex={pagination.endIndex}
+              itemLabel="ready orders"
+              showPageSize
+              className="border-t-0 pt-2"
+            />
+          </>
         )}
       </div>
+
     </FieldStaffSidebar>
   );
 }

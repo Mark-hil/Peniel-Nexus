@@ -1,5 +1,11 @@
 import * as React from 'react';
-import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  MoreHorizontal,
+} from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { ButtonProps, buttonVariants } from '@/components/ui/button';
@@ -36,60 +42,135 @@ PaginationItem.displayName = 'PaginationItem';
 
 type PaginationLinkProps = {
   isActive?: boolean;
+  disabled?: boolean;
+  as?: 'a' | 'button';
 } & Pick<ButtonProps, 'size'> &
-  React.ComponentProps<'a'>;
+  React.AnchorHTMLAttributes<HTMLAnchorElement> &
+  React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 const PaginationLink = ({
   className,
   isActive,
+  disabled,
   size = 'icon',
+  as,
+  onClick,
   ...props
-}: PaginationLinkProps) => (
-  <a
-    aria-current={isActive ? 'page' : undefined}
-    className={cn(
-      buttonVariants({
-        variant: isActive ? 'outline' : 'ghost',
-        size,
-      }),
-      className
-    )}
-    {...props}
-  />
-);
+}: PaginationLinkProps) => {
+  const isButton = as === 'button' || (!props.href && Boolean(onClick || as !== 'a'));
+
+  const commonClasses = cn(
+    buttonVariants({
+      variant: isActive ? 'outline' : 'ghost',
+      size,
+    }),
+    isActive && 'border-primary/30 bg-primary/10 text-primary font-semibold hover:bg-primary/15',
+    disabled && 'pointer-events-none opacity-40 cursor-not-allowed',
+    className
+  );
+
+  if (isButton) {
+    return (
+      <button
+        type="button"
+        aria-current={isActive ? 'page' : undefined}
+        aria-disabled={disabled}
+        disabled={disabled}
+        onClick={onClick}
+        className={commonClasses}
+        {...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+      />
+    );
+  }
+
+  return (
+    <a
+      aria-current={isActive ? 'page' : undefined}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : undefined}
+      onClick={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        onClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>);
+      }}
+      className={commonClasses}
+      {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
+    />
+  );
+};
 PaginationLink.displayName = 'PaginationLink';
 
 const PaginationPrevious = ({
   className,
+  disabled,
   ...props
 }: React.ComponentProps<typeof PaginationLink>) => (
   <PaginationLink
     aria-label="Go to previous page"
     size="default"
+    disabled={disabled}
     className={cn('gap-1 pl-2.5', className)}
     {...props}
   >
     <ChevronLeft className="h-4 w-4" />
-    <span>Previous</span>
+    <span className="hidden sm:inline">Previous</span>
   </PaginationLink>
 );
 PaginationPrevious.displayName = 'PaginationPrevious';
 
 const PaginationNext = ({
   className,
+  disabled,
   ...props
 }: React.ComponentProps<typeof PaginationLink>) => (
   <PaginationLink
     aria-label="Go to next page"
     size="default"
+    disabled={disabled}
     className={cn('gap-1 pr-2.5', className)}
     {...props}
   >
-    <span>Next</span>
+    <span className="hidden sm:inline">Next</span>
     <ChevronRight className="h-4 w-4" />
   </PaginationLink>
 );
 PaginationNext.displayName = 'PaginationNext';
+
+const PaginationFirst = ({
+  className,
+  disabled,
+  ...props
+}: React.ComponentProps<typeof PaginationLink>) => (
+  <PaginationLink
+    aria-label="Go to first page"
+    size="icon"
+    disabled={disabled}
+    className={cn('h-9 w-9', className)}
+    {...props}
+  >
+    <ChevronsLeft className="h-4 w-4" />
+  </PaginationLink>
+);
+PaginationFirst.displayName = 'PaginationFirst';
+
+const PaginationLast = ({
+  className,
+  disabled,
+  ...props
+}: React.ComponentProps<typeof PaginationLink>) => (
+  <PaginationLink
+    aria-label="Go to last page"
+    size="icon"
+    disabled={disabled}
+    className={cn('h-9 w-9', className)}
+    {...props}
+  >
+    <ChevronsRight className="h-4 w-4" />
+  </PaginationLink>
+);
+PaginationLast.displayName = 'PaginationLast';
 
 const PaginationEllipsis = ({
   className,
@@ -97,7 +178,7 @@ const PaginationEllipsis = ({
 }: React.ComponentProps<'span'>) => (
   <span
     aria-hidden
-    className={cn('flex h-9 w-9 items-center justify-center', className)}
+    className={cn('flex h-9 w-9 items-center justify-center text-muted-foreground', className)}
     {...props}
   >
     <MoreHorizontal className="h-4 w-4" />
@@ -110,8 +191,12 @@ export {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
+  PaginationFirst,
   PaginationItem,
+  PaginationLast,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
 };
+export { PaginationControl } from '@/components/ui/pagination-control';
+

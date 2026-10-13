@@ -135,3 +135,16 @@ export interface FAQItem {
   question: string;
   answer: string;
 }
+
+export interface PaginationState {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: PaginationState;
+}
+

@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAdminData } from '@/hooks/use-admin-data';
-import { paymentMethodLabels, statusLabels } from '@/lib/data';
+import { paymentMethodLabels, statusLabels } from '@/lib/constants';
 import { formatGHS } from '@/lib/format';
 import { toast } from 'sonner';
 import type { OrderStatus } from '@/types';

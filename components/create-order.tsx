@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { formatGHS } from '@/lib/format';
-import { popularItems } from '@/lib/data';
+import { popularItems } from '@/lib/constants';
 import { useSavedAddresses } from '@/hooks/use-saved-addresses';
 import { useOrders } from '@/hooks/use-orders';
 import { useAuth } from '@/components/auth-provider';

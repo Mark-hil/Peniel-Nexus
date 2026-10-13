@@ -5,7 +5,6 @@ import type { Order, OrderItem } from '@/types';
 import { fetchTimeline } from '@/lib/timeline';
 import { env } from '@/lib/config';
 import { isUUID, generateUUID } from '@/lib/utils';
-import { customerOrders } from '@/lib/data';
 
 interface OrderWithItems extends Omit<Order, 'items'> {
   items: OrderItem[];

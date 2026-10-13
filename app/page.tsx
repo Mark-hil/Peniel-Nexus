@@ -24,7 +24,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { popularItems, testimonials, faqItems } from '@/lib/data';
+import { popularItems, testimonials, faqItems } from '@/lib/constants';
 
 const steps = [
   {

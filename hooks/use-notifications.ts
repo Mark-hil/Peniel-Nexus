@@ -4,26 +4,7 @@ import * as React from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/auth-provider';
 import type { Notification } from '@/types';
-import {
-  customerNotifications,
-  shopperNotifications,
-  riderNotifications,
-  adminNotifications,
-} from '@/lib/data';
 import { isUUID } from '@/lib/utils';
-
-function getDefaultNotificationsForRole(role?: string): Notification[] {
-  switch (role) {
-    case 'shopper':
-      return shopperNotifications;
-    case 'rider':
-      return riderNotifications;
-    case 'admin':
-      return adminNotifications;
-    default:
-      return customerNotifications;
-  }
-}
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -37,8 +18,6 @@ export function useNotifications() {
       return;
     }
 
-    const defaultRoleNotifications = getDefaultNotificationsForRole(user.role);
-
     // Read locally marked-read notification IDs for this user
     let readIds: string[] = [];
     if (typeof window !== 'undefined') {
@@ -48,12 +27,7 @@ export function useNotifications() {
     }
 
     if (!isUUID(user.id)) {
-      setNotifications(
-        defaultRoleNotifications.map((n) => ({
-          ...n,
-          read: n.read || readIds.includes(n.id),
-        })),
-      );
+      setNotifications([]);
       setLoading(false);
       return;
     }
@@ -66,13 +40,7 @@ export function useNotifications() {
       .limit(50);
 
     if (error || !data || data.length === 0) {
-      // Use role-specific notifications fallback when remote table is empty or unpopulated
-      setNotifications(
-        defaultRoleNotifications.map((n) => ({
-          ...n,
-          read: n.read || readIds.includes(n.id),
-        })),
-      );
+      setNotifications([]);
     } else {
       setNotifications(
         data.map((n) => ({

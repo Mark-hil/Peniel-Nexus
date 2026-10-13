@@ -106,6 +106,13 @@ export interface Transaction {
   date: string;
 }
 
+export interface MarketItem {
+  name: string;
+  emoji: string;
+  category: string;
+  price?: string;
+}
+
 export interface PopularItem {
   name: string;
   emoji: string;

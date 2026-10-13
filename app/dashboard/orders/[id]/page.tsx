@@ -40,7 +40,7 @@ import {
 import { ChatPanel } from '@/components/chat-panel';
 import { useOrder } from '@/hooks/use-order';
 import { useChat } from '@/hooks/use-chat';
-import { paymentMethodLabels } from '@/lib/data';
+import { paymentMethodLabels } from '@/lib/constants';
 import { formatGHS } from '@/lib/format';
 import { toast } from 'sonner';
 import type { OrderStatus } from '@/types';

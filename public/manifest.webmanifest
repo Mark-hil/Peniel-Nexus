@@ -1,0 +1,19 @@
+{
+  "name": "Peniel Nexus — Fresh Market Delivery",
+  "short_name": "PenielNexus",
+  "description": "Tell us what you need and your budget. We shop from the local market and deliver fresh produce to your door.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "portrait-primary",
+  "categories": ["shopping", "food", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

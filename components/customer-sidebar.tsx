@@ -17,7 +17,7 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -138,6 +138,7 @@ function SidebarContent() {
 export function CustomerSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
+  const { unreadCount } = useNotifications();
 
   const pageTitle = navItems.find((n) => n.href === pathname)?.label ?? 'Dashboard';
 
@@ -167,6 +168,8 @@ export function CustomerSidebar({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <SheetContent side="left" className="w-72 p-4">
+          <SheetTitle className="sr-only">Customer Navigation Menu</SheetTitle>
+          <SheetDescription className="sr-only">Navigate orders, profile, settings, and new orders</SheetDescription>
           <SheetClose asChild className="absolute right-4 top-4">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <X className="h-4 w-4" />
@@ -188,10 +191,12 @@ export function CustomerSidebar({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button size="sm" asChild>
-              <Link href="/dashboard/orders/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Order
+            <Button variant="ghost" size="icon" asChild className="relative h-9 w-9 rounded-full">
+              <Link href="/dashboard/notifications" title="Notifications">
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
+                )}
               </Link>
             </Button>
           </div>

@@ -18,7 +18,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -203,6 +203,8 @@ export function FieldStaffSidebar({
           </div>
         </div>
         <SheetContent side="left" className="w-72 p-4">
+          <SheetTitle className="sr-only">Staff Navigation Menu</SheetTitle>
+          <SheetDescription className="sr-only">Quick navigation for field shoppers and riders</SheetDescription>
           <SheetClose asChild className="absolute right-4 top-4">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <X className="h-4 w-4" />

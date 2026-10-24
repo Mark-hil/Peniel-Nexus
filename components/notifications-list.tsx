@@ -52,7 +52,7 @@ const colorMap: Partial<Record<Notification['type'], string>> = {
 };
 
 export function NotificationsList() {
-  const { notifications, loading, unreadCount, markAllRead } = useNotifications();
+  const { notifications, loading, unreadCount, markAllRead, markAsRead } = useNotifications();
   const pagination = usePagination({
     items: notifications,
     initialPageSize: 8,
@@ -111,21 +111,34 @@ export function NotificationsList() {
                 return (
                   <div
                     key={n.id}
+                    onClick={() => {
+                      if (!n.read) markAsRead(n.id);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        if (!n.read) markAsRead(n.id);
+                      }
+                    }}
                     className={cn(
-                      'flex items-start gap-4 rounded-xl p-4 transition-colors',
-                      !n.read && 'bg-primary/5',
+                      'flex items-start gap-4 rounded-xl p-4 transition-colors cursor-pointer select-none',
+                      !n.read
+                        ? 'bg-primary/5 hover:bg-primary/10'
+                        : 'opacity-85 hover:bg-muted/50',
                     )}
+                    title={!n.read ? 'Click to mark as read' : undefined}
                   >
                     <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', colorMap[n.type] ?? 'bg-muted text-muted-foreground')}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">{n.title}</p>
-                        {!n.read && <span className="h-2 w-2 rounded-full bg-primary" />}
+                        <p className={cn('text-sm', !n.read ? 'font-semibold text-foreground' : 'font-medium text-foreground/90')}>{n.title}</p>
+                        {!n.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                       </div>
                       <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{n.timestamp}</p>
+                      <p className="mt-1 text-xs text-muted-foreground/80">{n.timestamp}</p>
                     </div>
                   </div>
                 );

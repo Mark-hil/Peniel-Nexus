@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { MapPin } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,6 +64,9 @@ export function AddressDialog({ open, onOpenChange, onSave, editing }: AddressDi
             <MapPin className="h-4 w-4 text-primary" />
             {editing ? 'Edit Address' : 'Add New Address'}
           </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Save a frequently used delivery address and Ghana digital GPS code.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

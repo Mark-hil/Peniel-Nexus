@@ -5,6 +5,7 @@ import type { Order, OrderItem } from '@/types';
 import { fetchTimeline } from '@/lib/timeline';
 import { env } from '@/lib/config';
 import { isUUID, generateUUID } from '@/lib/utils';
+import { dispatchLocalNotification } from '@/hooks/use-notifications';
 
 interface OrderWithItems extends Omit<Order, 'items'> {
   items: OrderItem[];
@@ -14,7 +15,7 @@ interface OrderWithItems extends Omit<Order, 'items'> {
 export const FALLBACK_GUEST_UUID = 'c0b52553-53cd-4112-8c71-19f377d3ca75';
 
 export function useOrders() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -67,27 +68,23 @@ export function useOrders() {
         .order('created_at', { ascending: false });
 
       if (user?.id && isUUID(user.id)) {
-        if (user.id.startsWith('11111111')) {
-          // Demo customer: check demo UUID, fallback guest UUID, or local order IDs
-          if (localOrderIds.length > 0) {
-            query = query.or(`user_id.eq.${user.id},user_id.eq.${FALLBACK_GUEST_UUID},id.in.(${localOrderIds.join(',')})`);
-          } else {
-            query = query.or(`user_id.eq.${user.id},user_id.eq.${FALLBACK_GUEST_UUID}`);
-          }
+        if (localOrderIds.length > 0) {
+          query = query.or(`user_id.eq.${user.id},id.in.(${localOrderIds.join(',')})`);
         } else {
-          // Authenticated real user
-          if (localOrderIds.length > 0) {
-            query = query.or(`user_id.eq.${user.id},id.in.(${localOrderIds.join(',')})`);
-          } else {
-            query = query.eq('user_id', user.id);
-          }
+          query = query.eq('user_id', user.id);
         }
       } else if (localOrderIds.length > 0) {
-        // Unauthenticated guest with local order IDs
-        query = query.or(`id.in.(${localOrderIds.join(',')}),user_id.eq.${FALLBACK_GUEST_UUID}`);
+        // Unauthenticated guest with local order IDs: only query their own local orders
+        query = query.in('id', localOrderIds);
       } else {
-        // Guest browsing: load recent public orders
-        query = query.or(`user_id.is.null,user_id.eq.${FALLBACK_GUEST_UUID}`).limit(20);
+        // If auth is still hydrating, do not prematurely display empty orders
+        if (authLoading) {
+          return;
+        }
+        // Unauthenticated guest with no local orders: display empty state
+        setOrders([]);
+        setLoading(false);
+        return;
       }
 
       const { data, error } = await query;
@@ -130,7 +127,7 @@ export function useOrders() {
         id: o.id,
         orderNumber: o.order_number,
         customerName: user?.fullName || 'Customer',
-        customerPhone: user?.phone || '+233 24 555 0142',
+        customerPhone: user?.phone || '',
         items: itemsByOrder[o.id] || [],
         shoppingBudget: Number(o.shopping_budget),
         serviceFee: Number(o.service_fee),
@@ -157,9 +154,9 @@ export function useOrders() {
         .filter((l) => !remoteIds.has(l.id))
         .map(async (parsed) => ({
           id: parsed.id,
-          orderNumber: parsed.order_number || 'PN-2026-GUEST',
-          customerName: user?.fullName || parsed.customerName || 'Guest Customer',
-          customerPhone: user?.phone || parsed.customerPhone || '+233 24 555 0142',
+          orderNumber: parsed.order_number || parsed.orderNumber || 'PN-ORDER',
+          customerName: user?.fullName || parsed.customerName || 'Customer',
+          customerPhone: user?.phone || parsed.customerPhone || '',
           items: (parsed.items || []).map((it: any, idx: number) => ({
             id: it.id || `item-${idx}`,
             name: it.name,
@@ -167,18 +164,18 @@ export function useOrders() {
             quantity: it.quantity,
             notes: it.notes,
           })),
-          shoppingBudget: Number(parsed.shopping_budget) || 0,
-          serviceFee: Number(parsed.service_fee) || 0,
-          deliveryFee: Number(parsed.delivery_fee) || 15,
+          shoppingBudget: Number(parsed.shopping_budget || parsed.shoppingBudget) || 0,
+          serviceFee: Number(parsed.service_fee || parsed.serviceFee) || 0,
+          deliveryFee: Number(parsed.delivery_fee || parsed.deliveryFee) || 15,
           total: Number(parsed.total) || 0,
-          status: 'received' as const,
-          paymentStatus: 'pending' as const,
-          paymentMethod: 'mtn_momo' as const,
-          deliveryAddress: parsed.delivery_address || 'Accra',
-          gpsLocation: '5.6037, -0.1870',
-          preferredTime: parsed.preferred_time || 'Today',
-          createdAt: new Date().toISOString(),
-          timeline: await fetchTimeline(parsed.id, 'received'),
+          status: (parsed.status as Order['status']) || 'received',
+          paymentStatus: (parsed.payment_status as Order['paymentStatus']) || (parsed.paymentStatus as Order['paymentStatus']) || 'pending',
+          paymentMethod: parsed.payment_method || parsed.paymentMethod || 'mtn_momo',
+          deliveryAddress: parsed.delivery_address || parsed.deliveryAddress || '',
+          gpsLocation: parsed.gps_location || parsed.gpsLocation || '',
+          preferredTime: parsed.preferred_time || parsed.preferredTime || '',
+          createdAt: parsed.created_at || parsed.createdAt || new Date().toISOString(),
+          timeline: await fetchTimeline(parsed.id, parsed.status || 'received'),
         }))
     );
 
@@ -192,9 +189,10 @@ export function useOrders() {
       setOrders([]);
     }
     setLoading(false);
-  }, [user]);
+  }, [user, authLoading]);
 
   React.useEffect(() => {
+    if (authLoading) return;
     fetchOrders();
 
     const channel = supabase
@@ -220,7 +218,7 @@ export function useOrders() {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, authLoading]);
 
   const createOrder = React.useCallback(
     async (params: {
@@ -368,8 +366,8 @@ export function useOrders() {
         const cachedOrder = {
           id: orderId,
           order_number: orderNumber,
-          customerName: params.customerName || user?.fullName || 'Guest Customer',
-          customerPhone: params.customerPhone || user?.phone || '+233 24 555 0142',
+          customerName: params.customerName || user?.fullName || 'Customer',
+          customerPhone: params.customerPhone || user?.phone || '',
           shopping_budget: params.shoppingBudget,
           service_fee: params.serviceFee,
           delivery_fee: params.deliveryFee,
@@ -386,6 +384,12 @@ export function useOrders() {
           }
         } catch {}
 
+        dispatchLocalNotification(targetUserId || user?.id, {
+          type: 'order_received',
+          title: 'Order Placed & Received',
+          message: `Your grocery order ${orderNumber} has been received and queued for personal shopping.`,
+        });
+
         await fetchOrders();
         return orderId;
       }
@@ -396,8 +400,8 @@ export function useOrders() {
       const fallbackOrder = {
         id: fallbackId,
         order_number: orderNumber,
-        customerName: params.customerName || user?.fullName || 'Guest Customer',
-        customerPhone: params.customerPhone || user?.phone || '+233 24 555 0142',
+        customerName: params.customerName || user?.fullName || 'Customer',
+        customerPhone: params.customerPhone || user?.phone || '',
         shopping_budget: params.shoppingBudget,
         service_fee: params.serviceFee,
         delivery_fee: params.deliveryFee,
@@ -414,6 +418,12 @@ export function useOrders() {
         }
       } catch {}
 
+      dispatchLocalNotification(targetUserId || user?.id, {
+        type: 'order_received',
+        title: 'Order Placed & Received',
+        message: `Your grocery order ${orderNumber} has been received and queued for personal shopping.`,
+      });
+
       await fetchOrders();
       return fallbackId;
     },
@@ -422,6 +432,11 @@ export function useOrders() {
 
   const cancelOrder = React.useCallback(
     async (orderId: string) => {
+      dispatchLocalNotification(user?.id, {
+        type: 'cancelled',
+        title: 'Order Cancelled',
+        message: 'Your order was cancelled and any refundable amount processed.',
+      });
       if (!isUUID(orderId)) {
         setOrders((prev) =>
           prev.map((o) =>
@@ -455,5 +470,5 @@ export function useOrders() {
     [],
   );
 
-  return { orders, loading, createOrder, cancelOrder, refresh: fetchOrders };
+  return { orders, loading: loading || (authLoading && orders.length === 0), createOrder, cancelOrder, refresh: fetchOrders };
 }

@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { formatGHS } from '@/lib/format';
 import { cn, isUUID } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 
 const paymentMethods = [
   { id: 'mtn_momo', label: 'MTN Mobile Money', desc: 'Pay with MTN MoMo', icon: Smartphone, color: 'bg-yellow-500', badge: 'MoMo' },
@@ -48,17 +49,24 @@ export default function PaymentPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
 
+  const { user } = useAuth();
   const [selected, setSelected] = React.useState('mtn_momo');
   const [loading, setLoading] = React.useState(false);
   const [fetching, setFetching] = React.useState(true);
   const [order, setOrder] = React.useState<OrderData | null>(null);
   const [itemCount, setItemCount] = React.useState(0);
-  const [momoNumber, setMomoNumber] = React.useState('+233 24 555 0142');
+  const [momoNumber, setMomoNumber] = React.useState(user?.phone || '');
   const [cardNumber, setCardNumber] = React.useState('');
   const [promptModalOpen, setPromptModalOpen] = React.useState(false);
-  const [momoPin, setMomoPin] = React.useState('1234');
+  const [momoPin, setMomoPin] = React.useState('');
   const [activeReference, setActiveReference] = React.useState('');
   const [verifying, setVerifying] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user?.phone && !momoNumber) {
+      setMomoNumber(user.phone);
+    }
+  }, [user?.phone, momoNumber]);
 
   React.useEffect(() => {
     if (!orderId) {
@@ -204,6 +212,21 @@ export default function PaymentPage() {
         return;
       }
 
+      // Update local cache so order shows as paid immediately across all portals
+      try {
+        if (typeof window !== 'undefined' && orderId) {
+          const cacheKey = `pn_order_${orderId}`;
+          const raw = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.payment_status = 'paid';
+            parsed.paymentStatus = 'paid';
+            localStorage.setItem(cacheKey, JSON.stringify(parsed));
+            sessionStorage.setItem(cacheKey, JSON.stringify(parsed));
+          }
+        }
+      } catch {}
+
       setPromptModalOpen(false);
       toast.success('Payment Approved!', {
         description: `Order #${order?.order_number || ''} confirmed. SMS confirmation sent!`,
@@ -313,7 +336,7 @@ export default function PaymentPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Name on Card</Label>
-                      <Input placeholder="Ama Owusu" />
+                      <Input placeholder="Cardholder Name" />
                     </div>
                     <Button type="submit" size="lg" className="w-full" disabled={loading || !order}>
                       {loading ? 'Processing...' : `Pay ${formatGHS(total)}`}
@@ -326,7 +349,7 @@ export default function PaymentPage() {
                       <div className="relative">
                         <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                          placeholder="+233 24 555 0142"
+                          placeholder="e.g. +233 24 000 0000"
                           value={momoNumber}
                           onChange={(e) => setMomoNumber(e.target.value)}
                           className="pl-9"

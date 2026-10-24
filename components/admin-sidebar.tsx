@@ -20,7 +20,7 @@ import {
   Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -173,6 +173,8 @@ export function AdminSidebar({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <SheetContent side="left" className="w-72 p-4">
+          <SheetTitle className="sr-only">Admin Navigation Menu</SheetTitle>
+          <SheetDescription className="sr-only">Manage orders, dispatch, analytics, and platform settings</SheetDescription>
           <SheetClose asChild className="absolute right-4 top-4">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <X className="h-4 w-4" />

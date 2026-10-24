@@ -20,6 +20,7 @@ import { useShopperOrders } from '@/hooks/use-shopper-orders';
 import { usePagination } from '@/hooks/use-pagination';
 import { PaginationControl } from '@/components/ui/pagination-control';
 import { formatGHS } from '@/lib/format';
+import { PaymentStatusBadge } from '@/components/status-badge';
 import { toast } from 'sonner';
 
 export default function ShopperAvailablePage() {
@@ -78,7 +79,10 @@ export default function ShopperAvailablePage() {
                 <Card key={order.id} className="border-border/60">
                   <CardHeader className="flex-row items-center justify-between">
                     <div>
-                      <CardTitle className="text-base">{order.orderNumber}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base">{order.orderNumber}</CardTitle>
+                        <PaymentStatusBadge status={order.paymentStatus} />
+                      </div>
                       <p className="mt-0.5 text-sm text-muted-foreground">{order.customerName}</p>
                     </div>
                     <div className="text-right">
@@ -154,8 +158,14 @@ export default function ShopperAvailablePage() {
                       </span>
                     </div>
 
+                    {order.paymentStatus === 'pending' && (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                        Payment verification pending from customer. You can claim this order to prepare.
+                      </div>
+                    )}
+
                     <Button
-                      className="w-full"
+                      className={`w-full ${order.paymentStatus === 'pending' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
                       size="lg"
                       onClick={() => handleAccept(order.id, order.orderNumber)}
                       disabled={accepting === order.id}
@@ -165,7 +175,9 @@ export default function ShopperAvailablePage() {
                       ) : (
                         <>
                           <ShoppingCart className="mr-2 h-4 w-4" />
-                          Accept & Start Shopping
+                          {order.paymentStatus === 'pending'
+                            ? 'Claim Order (Payment Pending)'
+                            : 'Accept & Start Shopping'}
                         </>
                       )}
                     </Button>

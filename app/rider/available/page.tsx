@@ -9,12 +9,15 @@ import {
   Truck,
   CheckCircle2,
   User,
+  ShoppingBag,
+  Zap,
 } from 'lucide-react';
 import { FieldStaffSidebar } from '@/components/field-staff-sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OrderStatusBadge } from '@/components/status-badge';
 import { useRiderOrders } from '@/hooks/use-rider-orders';
 import { usePagination } from '@/hooks/use-pagination';
 import { PaginationControl } from '@/components/ui/pagination-control';
@@ -23,8 +26,9 @@ import { DeliveryMap } from '@/components/delivery-map';
 import { toast } from 'sonner';
 
 export default function RiderAvailablePage() {
-  const { availableOrders, loading, acceptOrder } = useRiderOrders();
+  const { availableOrders, preparingOrders, loading, acceptOrder, fastForwardToPacked } = useRiderOrders();
   const [accepting, setAccepting] = React.useState<string | null>(null);
+  const [advancing, setAdvancing] = React.useState<string | null>(null);
 
   const pagination = usePagination({
     items: availableOrders,
@@ -44,6 +48,17 @@ export default function RiderAvailablePage() {
     }
   };
 
+  const handleFastForward = async (orderId: string, orderNumber: string) => {
+    setAdvancing(orderId);
+    const ok = await fastForwardToPacked(orderId);
+    setAdvancing(null);
+    if (ok) {
+      toast.success(`Order ${orderNumber} is now Packed & Ready!`, {
+        description: 'Moved into the rider pickup queue.',
+      });
+    }
+  };
+
   return (
     <FieldStaffSidebar role="rider">
       <div className="space-y-6">
@@ -60,17 +75,60 @@ export default function RiderAvailablePage() {
             <Skeleton className="h-96 rounded-xl" />
           </div>
         ) : availableOrders.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                <Package className="h-7 w-7" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">No orders ready for pickup</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Packed orders will appear here when shoppers are done.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                  <Package className="h-7 w-7" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">No orders currently ready for pickup</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Orders appear here as soon as a market shopper finishes buying the items and marks the bag as packed.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Pipeline Visibility: Orders currently in prep by Shoppers */}
+            {preparingOrders.length > 0 && (
+              <Card className="border-border/60 bg-muted/20">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-primary" />
+                      <CardTitle className="text-sm font-semibold">
+                        Upcoming Orders in Market Prep ({preparingOrders.length})
+                      </CardTitle>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Will move to queue once packed</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2.5 pt-0">
+                  {preparingOrders.map((prep) => (
+                    <div
+                      key={prep.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border/60 bg-background p-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">{prep.orderNumber}</span>
+                        <OrderStatusBadge status={prep.status} />
+                        <span className="text-muted-foreground">• Delivery: {prep.preferredTime}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                        disabled={advancing === prep.id}
+                        onClick={() => handleFastForward(prep.id, prep.orderNumber)}
+                      >
+                        <Zap className="mr-1.5 h-3 w-3 text-amber-500 fill-amber-500" />
+                        {advancing === prep.id ? 'Packing...' : 'Dev: Mark Packed for Pickup'}
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         ) : (
           <>
             <div className="grid gap-4 lg:grid-cols-2">

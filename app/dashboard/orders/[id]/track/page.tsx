@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Phone, MessageCircle, MapPin, KeyRound, Copy } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, MapPin, KeyRound, Copy, Check, CheckCircle2 } from 'lucide-react';
 import { CustomerSidebar } from '@/components/customer-sidebar';
 import { OrderTimeline } from '@/components/order-timeline';
 import { OrderStatusBadge } from '@/components/status-badge';
@@ -10,6 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ChatPanel } from '@/components/chat-panel';
 import { useOrder } from '@/hooks/use-order';
 import { useChat } from '@/hooks/use-chat';
@@ -21,9 +31,25 @@ export default function TrackOrderPage({
 }: {
   params: { id: string };
 }) {
-  const { order, loading } = useOrder(params.id);
+  const { order, loading, confirmDelivery } = useOrder(params.id);
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [confirmDeliveryOpen, setConfirmDeliveryOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   const chat = useChat(chatOpen ? params.id : null, null);
+
+  const handleConfirmDelivery = async () => {
+    setConfirming(true);
+    const success = await confirmDelivery();
+    setConfirming(false);
+    setConfirmDeliveryOpen(false);
+    if (success) {
+      toast.success('Delivery Confirmed!', {
+        description: 'Thank you for confirming receipt of your items.',
+      });
+    } else {
+      toast.error('Could not confirm delivery. Please try again.');
+    }
+  };
 
   if (loading) {
     return (
@@ -94,7 +120,7 @@ export default function TrackOrderPage({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 self-start sm:self-center">
+              <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center">
                 <div className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-background/90 px-4 py-2.5 shadow-sm">
                   {order.deliveryPin.split('').map((digit, idx) => (
                     <span
@@ -109,6 +135,7 @@ export default function TrackOrderPage({
                   variant="outline"
                   size="sm"
                   className="h-11 px-3"
+                  title="Copy PIN"
                   onClick={() => {
                     if (order.deliveryPin) {
                       navigator.clipboard?.writeText(order.deliveryPin);
@@ -118,6 +145,16 @@ export default function TrackOrderPage({
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
+                {order.status !== 'delivered' && (
+                  <Button
+                    size="sm"
+                    className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3.5"
+                    onClick={() => setConfirmDeliveryOpen(true)}
+                  >
+                    <Check className="mr-1.5 h-4 w-4" />
+                    Confirm Received
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -188,6 +225,31 @@ export default function TrackOrderPage({
           </div>
         </div>
       </div>
+
+      {/* Confirm Delivery Dialog */}
+      <AlertDialog open={confirmDeliveryOpen} onOpenChange={setConfirmDeliveryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Confirm Delivery Received
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Have you received all your market items in good condition? Confirming will mark this delivery as completed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirming}>Not yet</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelivery}
+              disabled={confirming}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {confirming ? 'Confirming...' : 'Yes, I Received My Items'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {chatOpen && order.rider && (
         <ChatPanel

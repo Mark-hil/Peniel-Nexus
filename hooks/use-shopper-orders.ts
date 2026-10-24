@@ -13,7 +13,7 @@ interface ShopperOrder extends Order {
 }
 
 export function useShopperOrders() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [availableOrders, setAvailableOrders] = React.useState<ShopperOrder[]>([]);
   const [activeOrders, setActiveOrders] = React.useState<ShopperOrder[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -51,6 +51,10 @@ export function useShopperOrders() {
   );
 
   const fetchOrders = React.useCallback(async () => {
+    if (authLoading) {
+      return;
+    }
+
     if (!user) {
       setAvailableOrders([]);
       setActiveOrders([]);
@@ -71,9 +75,51 @@ export function useShopperOrders() {
       .select('*')
       .eq('status', 'received')
       .is('shopper_id', null)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     const available = (availableData ?? []).filter((o) => !localAcceptedIds.includes(o.id));
+
+    // Also merge any locally cached received orders
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('pn_order_')) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (
+                parsed.id &&
+                !available.some((o) => o.id === parsed.id) &&
+                !localAcceptedIds.includes(parsed.id)
+              ) {
+                if (!parsed.status || parsed.status === 'received') {
+                  available.unshift({
+                    id: parsed.id,
+                    order_number: parsed.order_number || parsed.orderNumber || 'PN-ORDER',
+                    status: 'received',
+                    payment_status: parsed.payment_status || parsed.paymentStatus || 'pending',
+                    payment_method: parsed.payment_method || parsed.paymentMethod || 'mtn_momo',
+                    delivery_address: parsed.delivery_address || parsed.deliveryAddress || 'Accra',
+                    gps_location: parsed.gps_location || parsed.gpsLocation || '',
+                    preferred_time: parsed.preferred_time || parsed.preferredTime || 'Today',
+                    special_instructions: parsed.special_instructions || parsed.specialInstructions || null,
+                    shopping_budget: Number(parsed.shopping_budget || parsed.shoppingBudget) || 0,
+                    service_fee: Number(parsed.service_fee || parsed.serviceFee) || 0,
+                    delivery_fee: Number(parsed.delivery_fee || parsed.deliveryFee) || 15,
+                    total: Number(parsed.total) || 0,
+                    shopper_id: null,
+                    rider_id: null,
+                    created_at: parsed.created_at || parsed.createdAt || new Date().toISOString(),
+                    user_id: parsed.user_id || null,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
 
     let active: any[] = [];
     let done: any[] = [];
@@ -153,9 +199,10 @@ export function useShopperOrders() {
     setAvailableOrders(enriched.filter((o) => o.status === 'received'));
     setActiveOrders(enriched.filter((o) => o.status !== 'received'));
     setLoading(false);
-  }, [user, mapOrder]);
+  }, [user, authLoading, mapOrder]);
 
   React.useEffect(() => {
+    if (authLoading) return;
     fetchOrders();
 
     // 1. Supabase Realtime channel for instant push updates
@@ -179,7 +226,7 @@ export function useShopperOrders() {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, authLoading]);
 
   const acceptOrder = React.useCallback(async (orderId: string) => {
     if (!user || !isUUID(orderId) || !isUUID(user.id)) return false;
@@ -228,6 +275,20 @@ export function useShopperOrders() {
       .from('orders')
       .update({ status })
       .eq('id', orderId);
+
+    // Sync localStorage cache so customer & rider see immediate status change
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`pn_order_${orderId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.status = status;
+          localStorage.setItem(`pn_order_${orderId}`, JSON.stringify(parsed));
+          window.dispatchEvent(new Event('pn_notifications_updated'));
+        }
+      } catch {}
+    }
+
     if (error) return false;
     fetchOrders();
     return true;
@@ -242,5 +303,5 @@ export function useShopperOrders() {
     };
   }, [activeOrders]);
 
-  return { availableOrders, activeOrders, loading, acceptOrder, updateStatus, earnings, refresh: fetchOrders };
+  return { availableOrders, activeOrders, loading: loading || authLoading, acceptOrder, updateStatus, earnings, refresh: fetchOrders };
 }

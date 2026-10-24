@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -408,6 +409,9 @@ export function LocationPicker({
               <MapIcon className="h-4 w-4 text-primary" />
               Pin Exact Delivery Gate / House
             </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Drag or tap the map to place the pin on your exact gate or door.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="py-1">

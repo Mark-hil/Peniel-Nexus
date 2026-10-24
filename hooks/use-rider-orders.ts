@@ -13,9 +13,10 @@ interface RiderOrder extends Order {
 }
 
 export function useRiderOrders() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [availableOrders, setAvailableOrders] = React.useState<RiderOrder[]>([]);
   const [activeOrders, setActiveOrders] = React.useState<RiderOrder[]>([]);
+  const [preparingOrders, setPreparingOrders] = React.useState<{ id: string; orderNumber: string; status: OrderStatus; preferredTime: string }[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const mapOrder = React.useCallback(
@@ -52,6 +53,10 @@ export function useRiderOrders() {
   );
 
   const fetchOrders = React.useCallback(async () => {
+    if (authLoading) {
+      return;
+    }
+
     if (!user) {
       setAvailableOrders([]);
       setActiveOrders([]);
@@ -67,14 +72,74 @@ export function useRiderOrders() {
       } catch {}
     }
 
+    // 1. Fetch available orders ready for pickup from Supabase
     const { data: availableData } = await supabase
       .from('orders')
       .select('*')
       .in('status', ['packing', 'packed', 'ready_for_pickup'])
       .is('rider_id', null)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
-    const available = (availableData ?? []).filter((o) => !localAcceptedIds.includes(o.id));
+    const available: any[] = [...(availableData ?? [])];
+
+    // 2. Also merge any locally cached packed orders (guest or dev test orders)
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('pn_order_')) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (
+                parsed.id &&
+                !available.some((o) => o.id === parsed.id)
+              ) {
+                if (['packing', 'packed', 'ready_for_pickup'].includes(parsed.status)) {
+                  available.unshift({
+                    id: parsed.id,
+                    order_number: parsed.order_number || parsed.orderNumber || 'PN-ORDER',
+                    status: 'packing',
+                    payment_status: parsed.payment_status || parsed.paymentStatus || 'paid',
+                    payment_method: parsed.payment_method || parsed.paymentMethod || 'mtn_momo',
+                    delivery_address: parsed.delivery_address || parsed.deliveryAddress || 'Accra',
+                    gps_location: parsed.gps_location || parsed.gpsLocation || '',
+                    preferred_time: parsed.preferred_time || parsed.preferredTime || 'Today',
+                    special_instructions: parsed.special_instructions || parsed.specialInstructions || null,
+                    shopping_budget: Number(parsed.shopping_budget || parsed.shoppingBudget) || 0,
+                    service_fee: Number(parsed.service_fee || parsed.serviceFee) || 0,
+                    delivery_fee: Number(parsed.delivery_fee || parsed.deliveryFee) || 15,
+                    total: Number(parsed.total) || 0,
+                    shopper_id: parsed.shopper_id || null,
+                    rider_id: null,
+                    created_at: parsed.created_at || parsed.createdAt || new Date().toISOString(),
+                    user_id: parsed.user_id || null,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Fetch orders in preparation (received, accepted, shopping) so riders can monitor upcoming workload
+    const { data: prepData } = await supabase
+      .from('orders')
+      .select('id, order_number, status, preferred_time')
+      .in('status', ['received', 'accepted', 'shopping'])
+      .order('created_at', { ascending: false });
+
+    if (prepData) {
+      setPreparingOrders(
+        prepData.map((p) => ({
+          id: p.id,
+          orderNumber: p.order_number,
+          status: p.status as OrderStatus,
+          preferredTime: p.preferred_time,
+        }))
+      );
+    }
 
     let active: any[] = [];
     let delivered: any[] = [];
@@ -113,7 +178,13 @@ export function useRiderOrders() {
       delivered = deliveredData ?? [];
     }
 
-    const allOrders = [...available, ...active, ...delivered];
+    // Active order IDs assigned to this rider
+    const activeOrderIds = new Set(active.map((o) => o.id));
+
+    // Exclude orders that are already active for this rider
+    const unacceptedAvailable = available.filter((o) => !activeOrderIds.has(o.id));
+
+    const allOrders = [...unacceptedAvailable, ...active, ...delivered];
     const enriched = await Promise.all(
       allOrders.map(async (o) => {
         let profile: any = null;
@@ -151,12 +222,19 @@ export function useRiderOrders() {
       }),
     );
 
-    setAvailableOrders(enriched.filter((o) => o.status === 'packing' && !localAcceptedIds.includes(o.id)));
+    setAvailableOrders(
+      enriched.filter(
+        (o) =>
+          ['packing', 'packed', 'ready_for_pickup'].includes(o.status) &&
+          !activeOrderIds.has(o.id)
+      )
+    );
     setActiveOrders(enriched.filter((o) => o.status === 'out_for_delivery' || o.status === 'delivered'));
     setLoading(false);
-  }, [user, mapOrder]);
+  }, [user, authLoading, mapOrder]);
 
   React.useEffect(() => {
+    if (authLoading) return;
     fetchOrders();
 
     // 1. Supabase Realtime channel for instant pickup queue updates
@@ -180,7 +258,7 @@ export function useRiderOrders() {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, authLoading]);
 
   const acceptOrder = React.useCallback(async (orderId: string) => {
     if (!user || !isUUID(orderId) || !isUUID(user.id)) return false;
@@ -214,6 +292,19 @@ export function useRiderOrders() {
       }
     }
 
+    // Sync local storage cache
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`pn_order_${orderId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.status = 'out_for_delivery';
+          parsed.rider = user.fullName;
+          localStorage.setItem(`pn_order_${orderId}`, JSON.stringify(parsed));
+        }
+      } catch {}
+    }
+
     if (error) {
       console.error('Error accepting delivery:', error);
       return false;
@@ -239,6 +330,19 @@ export function useRiderOrders() {
       .from('orders')
       .update({ status: 'delivered' })
       .eq('id', orderId);
+
+    // Sync local storage cache
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`pn_order_${orderId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.status = 'delivered';
+          localStorage.setItem(`pn_order_${orderId}`, JSON.stringify(parsed));
+          window.dispatchEvent(new Event('pn_notifications_updated'));
+        }
+      } catch {}
+    }
 
     if (error) {
       console.error('Error marking delivered:', error);
@@ -272,6 +376,24 @@ export function useRiderOrders() {
     return { success: false, error: 'Failed to confirm delivery.' };
   }, [activeOrders, markDelivered]);
 
+  // Dev helper to fast-forward an order in prep into the rider's pickup queue
+  const fastForwardToPacked = React.useCallback(async (orderId: string) => {
+    if (!isUUID(orderId)) return false;
+    await supabase.from('orders').update({ status: 'packing' }).eq('id', orderId);
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`pn_order_${orderId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.status = 'packing';
+          localStorage.setItem(`pn_order_${orderId}`, JSON.stringify(parsed));
+        }
+      } catch {}
+    }
+    await fetchOrders();
+    return true;
+  }, [fetchOrders]);
+
   const earnings = React.useMemo(() => {
     const completed = activeOrders.filter((o) => o.status === 'delivered');
     return {
@@ -281,5 +403,16 @@ export function useRiderOrders() {
     };
   }, [activeOrders]);
 
-  return { availableOrders, activeOrders, loading, acceptOrder, markDelivered, confirmByPinOnly, earnings, refresh: fetchOrders };
+  return {
+    availableOrders,
+    activeOrders,
+    preparingOrders,
+    loading: loading || authLoading,
+    acceptOrder,
+    markDelivered,
+    confirmByPinOnly,
+    fastForwardToPacked,
+    earnings,
+    refresh: fetchOrders,
+  };
 }

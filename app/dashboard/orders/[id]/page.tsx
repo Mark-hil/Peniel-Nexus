@@ -16,7 +16,9 @@ import {
   MessageCircle,
   KeyRound,
   Check,
+  CheckCircle2,
   Copy,
+  AlertCircle,
 } from 'lucide-react';
 import { CustomerSidebar } from '@/components/customer-sidebar';
 import { OrderTimeline } from '@/components/order-timeline';
@@ -52,9 +54,11 @@ export default function OrderDetailsPage({
 }: {
   params: { id: string };
 }) {
-  const { order, loading, cancelOrder } = useOrder(params.id);
+  const { order, loading, cancelOrder, confirmDelivery } = useOrder(params.id);
   const [cancelOpen, setCancelOpen] = React.useState(false);
   const [cancelReason, setCancelReason] = React.useState('');
+  const [confirmDeliveryOpen, setConfirmDeliveryOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   const [chatOpenFor, setChatOpenFor] = React.useState<'shopper' | 'rider' | null>(null);
 
   const shopperChat = useChat(
@@ -104,6 +108,20 @@ export default function OrderDetailsPage({
     }
   };
 
+  const handleConfirmDelivery = async () => {
+    setConfirming(true);
+    const success = await confirmDelivery();
+    setConfirming(false);
+    setConfirmDeliveryOpen(false);
+    if (success) {
+      toast.success('Delivery Confirmed!', {
+        description: 'Thank you for confirming receipt of your items.',
+      });
+    } else {
+      toast.error('Could not confirm delivery. Please try again.');
+    }
+  };
+
   return (
     <CustomerSidebar>
       <div className="space-y-6">
@@ -127,7 +145,7 @@ export default function OrderDetailsPage({
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {order.status === 'delivered' && (
               <Button variant="outline" asChild>
                 <Link href={`/dashboard/orders/${order.id}/rate`}>
@@ -136,12 +154,29 @@ export default function OrderDetailsPage({
                 </Link>
               </Button>
             )}
-            {order.status !== 'delivered' && order.status !== 'cancelled' && (
-              <Button variant="outline" asChild>
-                <Link href={`/dashboard/orders/${order.id}/track`}>
-                  Track Order
+            {order.paymentStatus === 'pending' && order.status !== 'cancelled' && (
+              <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white font-medium">
+                <Link href={`/payment?orderId=${order.id}`}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pay Now ({formatGHS(order.total)})
                 </Link>
               </Button>
+            )}
+            {order.paymentStatus === 'paid' && order.status !== 'delivered' && order.status !== 'cancelled' && (
+              <>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                  onClick={() => setConfirmDeliveryOpen(true)}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Confirm Delivery Received
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/dashboard/orders/${order.id}/track`}>
+                    Track Order
+                  </Link>
+                </Button>
+              </>
             )}
             {canCancel && (
               <Button
@@ -155,6 +190,24 @@ export default function OrderDetailsPage({
             )}
           </div>
         </div>
+
+        {/* Payment pending banner */}
+        {order.paymentStatus === 'pending' && order.status !== 'cancelled' && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Payment Pending</p>
+                <p className="text-xs text-muted-foreground">
+                  This order has not been paid for yet. Complete payment so a personal shopper can begin shopping.
+                </p>
+              </div>
+            </div>
+            <Button size="sm" asChild className="bg-amber-600 hover:bg-amber-700 text-white shrink-0">
+              <Link href={`/payment?orderId=${order.id}`}>Complete Payment</Link>
+            </Button>
+          </div>
+        )}
 
         {/* Cancelled banner */}
         {order.status === 'cancelled' && (
@@ -194,7 +247,7 @@ export default function OrderDetailsPage({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 self-start sm:self-center">
+              <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center">
                 <div className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-background/90 px-4 py-2.5 shadow-sm">
                   {order.deliveryPin.split('').map((digit, idx) => (
                     <span
@@ -209,6 +262,7 @@ export default function OrderDetailsPage({
                   variant="outline"
                   size="sm"
                   className="h-11 px-3"
+                  title="Copy PIN"
                   onClick={() => {
                     if (order.deliveryPin) {
                       navigator.clipboard?.writeText(order.deliveryPin);
@@ -218,6 +272,16 @@ export default function OrderDetailsPage({
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
+                {order.status !== 'delivered' && (
+                  <Button
+                    size="sm"
+                    className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3.5"
+                    onClick={() => setConfirmDeliveryOpen(true)}
+                  >
+                    <Check className="mr-1.5 h-4 w-4" />
+                    Confirm Received
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -435,6 +499,31 @@ export default function OrderDetailsPage({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Yes, Cancel Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Delivery Dialog */}
+      <AlertDialog open={confirmDeliveryOpen} onOpenChange={setConfirmDeliveryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Confirm Delivery Received
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Have you received all your market items in good condition? Confirming will mark this order as completed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirming}>Not yet</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelivery}
+              disabled={confirming}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {confirming ? 'Confirming...' : 'Yes, I Received My Items'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

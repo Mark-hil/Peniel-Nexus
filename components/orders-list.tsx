@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Package, Search, PlusCircle, Filter } from 'lucide-react';
+import { Package, Search, PlusCircle, Filter, CreditCard } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,6 +138,18 @@ export function OrdersList() {
                           <p className="font-semibold">{formatGHS(order.total)}</p>
                           <PaymentStatusBadge status={order.paymentStatus} className="mt-1" />
                         </div>
+                        {order.paymentStatus === 'pending' && order.status !== 'cancelled' && (
+                          <Button
+                            size="sm"
+                            className="h-8 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs shadow-xs"
+                            asChild
+                          >
+                            <Link href={`/payment?orderId=${order.id}`}>
+                              <CreditCard className="h-3.5 w-3.5" />
+                              Pay Now
+                            </Link>
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

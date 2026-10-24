@@ -26,7 +26,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -42,8 +42,26 @@ export default function LoginPage() {
         return;
       }
 
+      let destination = '/dashboard';
+      if (data?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        const role = profile?.role || (data.user.user_metadata?.role as string) || 'customer';
+        if (typeof document !== 'undefined') {
+          document.cookie = `mb_role=${encodeURIComponent(role)}; path=/; max-age=2592000; SameSite=Lax`;
+          document.cookie = `mb_user_id=${encodeURIComponent(data.user.id)}; path=/; max-age=2592000; SameSite=Lax`;
+        }
+        if (role === 'shopper') destination = '/shopper';
+        else if (role === 'rider') destination = '/rider';
+        else if (role === 'admin') destination = '/admin';
+      }
+
       toast.success('Welcome back!', { description: 'You are now signed in.' });
-      router.push('/dashboard');
+      router.push(destination);
     } catch {
       toast.error('Unable to connect to Supabase', {
         description: 'Network error reaching Supabase database. Please check NEXT_PUBLIC_SUPABASE_URL in .env.',
@@ -207,10 +225,14 @@ export default function LoginPage() {
                     role,
                   };
 
-                  // Establish session cookies immediately for middleware
+                  // Clear previous session if switching personas so previous session does not linger
+                  await supabase.auth.signOut().catch(() => {});
+
+                  // Establish session cookies immediately for middleware and auth provider
                   if (typeof document !== 'undefined') {
                     document.cookie = `mb_role=${encodeURIComponent(role)}; path=/; max-age=2592000; SameSite=Lax`;
                     document.cookie = `mb_user_id=${encodeURIComponent(demoUser.id)}; path=/; max-age=2592000; SameSite=Lax`;
+                    localStorage.setItem('mb_user', JSON.stringify(demoUser));
                     localStorage.setItem('mb_demo_user', JSON.stringify(demoUser));
                   }
 

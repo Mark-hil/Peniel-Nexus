@@ -32,6 +32,7 @@ import { useOrders } from '@/hooks/use-orders';
 import { useAuth } from '@/components/auth-provider';
 import { checkDeliveryZone } from '@/lib/delivery-zones';
 import { LocationPicker } from '@/components/location-picker';
+import { DeliveryTimePicker } from '@/components/delivery-time-picker';
 import { cn } from '@/lib/utils';
 import type { SavedAddress } from '@/types';
 
@@ -55,25 +56,32 @@ export function CreateOrder() {
   const { createOrder } = useOrders();
   const [submitting, setSubmitting] = React.useState(false);
   const [items, setItems] = React.useState<OrderItem[]>([
-    { id: '1', name: 'Tomatoes', budget: '20', quantity: '2 heaps', notes: 'Very ripe' },
-    { id: '2', name: 'Onions', budget: '10', quantity: '1 heap', notes: '' },
-    { id: '3', name: 'Pepper', budget: '5', quantity: '1 heap', notes: 'Red pepper' },
-    { id: '4', name: 'Fish', budget: '50', quantity: '2 pieces', notes: 'Tilapia, fresh' },
+    { id: '1', name: '', budget: '', quantity: '', notes: '' },
   ]);
   const [selectedAddressId, setSelectedAddressId] = React.useState<string>('');
-  const [customerName, setCustomerName] = React.useState(user?.fullName || 'Akosua Mansa');
+  const [customerName, setCustomerName] = React.useState(user?.fullName || '');
   const [address, setAddress] = React.useState('');
   const [locationLabel, setLocationLabel] = React.useState('');
   const [gps, setGps] = React.useState('');
-  const [phone, setPhone] = React.useState(user?.phone || '+233 24 555 0142');
-  const [deliveryTime, setDeliveryTime] = React.useState('Today, 2:00 PM – 4:00 PM');
+  const [phone, setPhone] = React.useState(user?.phone || '');
+  const [deliveryTime, setDeliveryTime] = React.useState('');
   const [instructions, setInstructions] = React.useState('');
   const [zoneStatus, setZoneStatus] = React.useState<'idle' | 'valid' | 'invalid'>('idle');
   const [zoneMessage, setZoneMessage] = React.useState('');
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   React.useEffect(() => {
-    if (user?.fullName) setCustomerName(user.fullName);
-    if (user?.phone) setPhone(user.phone);
+    if (user?.fullName) setCustomerName((prev) => prev || user.fullName);
+    if (user?.phone) setPhone((prev) => prev || user.phone);
   }, [user]);
 
   React.useEffect(() => {
@@ -121,7 +129,12 @@ export function CreateOrder() {
   };
 
   const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    setItems((prev) => {
+      if (prev.length <= 1) {
+        return [{ id: prev[0].id, name: '', budget: '', quantity: '', notes: '' }];
+      }
+      return prev.filter((i) => i.id !== id);
+    });
   };
 
   const updateItem = (id: string, field: keyof OrderItem, value: string) => {
@@ -130,21 +143,53 @@ export function CreateOrder() {
 
   const shoppingBudget = items.reduce((sum, i) => sum + (parseFloat(i.budget) || 0), 0);
   const serviceFee = shoppingBudget * SERVICE_FEE_RATE;
-  const total = shoppingBudget + serviceFee + DELIVERY_FEE;
+  const total = shoppingBudget > 0 ? shoppingBudget + serviceFee + DELIVERY_FEE : 0;
+  const filledItemsCount = items.filter((i) => i.name.trim() !== '').length;
 
   const handleCheckout = async () => {
-    if (items.length === 0 || items.some((i) => !i.name || !i.budget)) {
-      toast.error('Please complete all items with a name and budget');
-      return;
+    const errs: Record<string, string> = {};
+
+    const validItems = items.filter((i) => i.name.trim() !== '');
+    if (validItems.length === 0) {
+      errs.items = 'Please enter at least one item in your shopping list';
+    } else {
+      const invalidBudget = validItems.find(
+        (i) => !i.budget.trim() || isNaN(parseFloat(i.budget)) || parseFloat(i.budget) <= 0,
+      );
+      if (invalidBudget) {
+        errs.items = `Please specify a valid budget for "${invalidBudget.name}"`;
+      }
     }
+
     if (!gps.trim()) {
-      toast.error('Please select a delivery location or digital address');
+      errs.location = 'Please select a delivery location or digital address';
+    } else if (zoneStatus === 'invalid') {
+      errs.location = 'Your delivery address is outside our service zone.';
+    }
+
+    if (!customerName.trim()) {
+      errs.customerName = 'Recipient Full Name is required';
+    }
+
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!phone.trim()) {
+      errs.phone = 'Recipient Phone Number is required';
+    } else if (phoneDigits.length < 9) {
+      errs.phone = 'Please enter a valid phone number (at least 9 digits)';
+    }
+
+    if (!deliveryTime.trim()) {
+      errs.deliveryTime = 'Preferred Delivery Time is required';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      const firstError = Object.values(errs)[0];
+      toast.error(firstError);
       return;
     }
-    if (zoneStatus === 'invalid') {
-      toast.error('Your delivery address is outside our service zone.');
-      return;
-    }
+
+    setFieldErrors({});
 
     const fullDeliveryAddress = address.trim()
       ? `${address.trim()} (${locationLabel || gps})`
@@ -152,23 +197,23 @@ export function CreateOrder() {
 
     setSubmitting(true);
     const orderId = await createOrder({
-      items: items.map((i) => ({
-        name: i.name,
+      items: validItems.map((i) => ({
+        name: i.name.trim(),
         budget: parseFloat(i.budget) || 0,
-        quantity: i.quantity || undefined,
-        notes: i.notes || undefined,
+        quantity: i.quantity.trim() || undefined,
+        notes: i.notes.trim() || undefined,
       })),
       deliveryAddress: fullDeliveryAddress,
       gpsLocation: gps,
-      preferredTime: deliveryTime,
-      specialInstructions: instructions || undefined,
+      preferredTime: deliveryTime.trim(),
+      specialInstructions: instructions.trim() || undefined,
       paymentMethod: 'mtn_momo',
       shoppingBudget,
       serviceFee,
       deliveryFee: DELIVERY_FEE,
       total,
-      customerName: customerName.trim() || undefined,
-      customerPhone: phone.trim() || undefined,
+      customerName: customerName.trim(),
+      customerPhone: phone.trim(),
     });
     setSubmitting(false);
 
@@ -199,9 +244,15 @@ export function CreateOrder() {
                 <ShoppingCart className="h-4 w-4" />
                 Shopping List
               </CardTitle>
-              <span className="text-sm text-muted-foreground">{items.length} items</span>
+              <span className="text-sm text-muted-foreground">{filledItemsCount} {filledItemsCount === 1 ? 'item' : 'items'}</span>
             </CardHeader>
             <CardContent className="space-y-3">
+              {fieldErrors.items && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{fieldErrors.items}</span>
+                </div>
+              )}
               {items.map((item) => (
                 <div
                   key={item.id}
@@ -253,9 +304,17 @@ export function CreateOrder() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      type="button"
                       className="mt-6 h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => removeItem(item.id)}
-                      disabled={items.length === 1}
+                      disabled={
+                        items.length === 1 &&
+                        !item.name.trim() &&
+                        !item.budget.trim() &&
+                        !item.quantity.trim() &&
+                        !item.notes.trim()
+                      }
+                      title={items.length === 1 ? 'Clear item' : 'Remove item'}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -275,11 +334,23 @@ export function CreateOrder() {
                   {popularItems.slice(0, 6).map((item) => (
                     <button
                       key={item.name}
+                      type="button"
                       onClick={() =>
-                        setItems((prev) => [
-                          ...prev,
-                          { id: Date.now().toString(), name: item.name, budget: '', quantity: '', notes: '' },
-                        ])
+                        setItems((prev) => {
+                          if (
+                            prev.length === 1 &&
+                            !prev[0].name.trim() &&
+                            !prev[0].budget.trim() &&
+                            !prev[0].quantity.trim() &&
+                            !prev[0].notes.trim()
+                          ) {
+                            return [{ ...prev[0], name: item.name }];
+                          }
+                          return [
+                            ...prev,
+                            { id: Date.now().toString(), name: item.name, budget: '', quantity: '', notes: '' },
+                          ];
+                        })
                       }
                       className="flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-3 py-1.5 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
@@ -332,31 +403,63 @@ export function CreateOrder() {
                     if (label) {
                       setLocationLabel(label);
                     }
+                    if (newGps) clearFieldError('location');
                   }}
                 />
+                {fieldErrors.location && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1.5">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    {fieldErrors.location}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Recipient Full Name</Label>
+                  <Label>
+                    Recipient Full Name <span className="text-destructive">*</span>
+                  </Label>
                   <Input
-                    placeholder="e.g. Akosua Mansa"
+                    placeholder="Enter recipient full name"
                     value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      if (e.target.value.trim()) clearFieldError('customerName');
+                    }}
+                    className={cn(fieldErrors.customerName && 'border-destructive focus-visible:ring-destructive')}
+                    required
                   />
+                  {fieldErrors.customerName && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {fieldErrors.customerName}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Recipient Phone Number</Label>
+                  <Label>
+                    Recipient Phone Number <span className="text-destructive">*</span>
+                  </Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="+233 24 555 0142"
+                      placeholder="e.g. +233 24 000 0000"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="pl-9"
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (e.target.value.replace(/\D/g, '').length >= 9) clearFieldError('phone');
+                      }}
+                      className={cn('pl-9', fieldErrors.phone && 'border-destructive focus-visible:ring-destructive')}
+                      required
                     />
                   </div>
+                  {fieldErrors.phone && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {fieldErrors.phone}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -377,16 +480,23 @@ export function CreateOrder() {
               </div>
 
               <div className="space-y-2">
-                <Label>Preferred Delivery Time</Label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Today, 2:00 PM – 4:00 PM"
-                    value={deliveryTime}
-                    onChange={(e) => setDeliveryTime(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
+                <Label>
+                  Preferred Delivery Time <span className="text-destructive">*</span>
+                </Label>
+                <DeliveryTimePicker
+                  value={deliveryTime}
+                  onChange={(val) => {
+                    setDeliveryTime(val);
+                    if (val.trim()) clearFieldError('deliveryTime');
+                  }}
+                  required
+                />
+                {fieldErrors.deliveryTime && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    {fieldErrors.deliveryTime}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Special Instructions</Label>
@@ -456,7 +566,7 @@ export function CreateOrder() {
 
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <ShoppingCart className="h-3.5 w-3.5" />
-                {items.length} items in your basket
+                {filledItemsCount} {filledItemsCount === 1 ? 'item' : 'items'} in your basket
               </div>
             </CardContent>
           </Card>

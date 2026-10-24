@@ -32,13 +32,16 @@ export interface AdminStats {
 }
 
 export function useAdminData() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = React.useState<AdminOrder[]>([]);
   const [teamMembers, setTeamMembers] = React.useState<AdminTeamMember[]>([]);
   const [stats, setStats] = React.useState<AdminStats | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   const fetchAll = React.useCallback(async () => {
+    if (authLoading) {
+      return;
+    }
     if (!user) {
       setLoading(false);
       return;
@@ -148,9 +151,10 @@ export function useAdminData() {
     });
 
     setLoading(false);
-  }, [user]);
+  }, [user, authLoading]);
 
   React.useEffect(() => {
+    if (authLoading) return;
     fetchAll();
 
     const channel = supabase
@@ -179,7 +183,7 @@ export function useAdminData() {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [fetchAll]);
+  }, [fetchAll, authLoading]);
 
   const updateOrderStatus = React.useCallback(async (orderId: string, status: OrderStatus) => {
     const { error } = await supabase
@@ -201,5 +205,5 @@ export function useAdminData() {
     return true;
   }, [fetchAll]);
 
-  return { orders, teamMembers, stats, loading, updateOrderStatus, assignStaff, refresh: fetchAll };
+  return { orders, teamMembers, stats, loading: loading || authLoading, updateOrderStatus, assignStaff, refresh: fetchAll };
 }

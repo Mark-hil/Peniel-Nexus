@@ -161,12 +161,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (newSession?.user) {
         fetchProfile(newSession.user);
       } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        if (typeof document !== 'undefined') {
-          document.cookie = 'mb_role=; path=/; max-age=0; SameSite=Lax';
-          document.cookie = 'mb_user_id=; path=/; max-age=0; SameSite=Lax';
-          localStorage.removeItem('mb_user');
-          localStorage.removeItem('mb_demo_user');
+        const hasDemoUser = typeof window !== 'undefined' && Boolean(localStorage.getItem('mb_demo_user'));
+        if (!hasDemoUser) {
+          setUser(null);
+          if (typeof document !== 'undefined') {
+            document.cookie = 'mb_role=; path=/; max-age=0; SameSite=Lax';
+            document.cookie = 'mb_user_id=; path=/; max-age=0; SameSite=Lax';
+            localStorage.removeItem('mb_user');
+          }
         }
       }
       setLoading(false);
